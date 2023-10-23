@@ -70,7 +70,7 @@ class CalledProcessError(Exception):
 def is_64bit():
     if os.name == "nt":
         os_arch = os.environ["PROCESSOR_ARCHITEW6432"]
-        return True if os_arch == "AMD64" else False
+        return os_arch == "AMD64"
     else:
         logger.critical(
             "This was only meant to be run on Windows-based system. Specifically, Windows 10."
@@ -123,10 +123,8 @@ def clear_diagtrack():
         'echo "" > "{file}"'.format(file=file),
     ]
 
-    i = 0
     failed = False
-    for cmd in cmds:
-        i += 1
+    for i, cmd in enumerate(cmds, start=1):
         service = cmd.split("sc delete ")
 
         output = subprocess_handler(cmd)
@@ -215,7 +213,7 @@ def delete_service(service):
             winerror.ERROR_SERVICE_NOT_ACTIVE,
             winerror.ERROR_SERVICE_MARKED_FOR_DELETE,
         )
-        if not any(error == e.winerror for error in errors):
+        if e.winerror not in errors:
             logger.exception(
                 "Services: Failed to remove service '{service}'".format(service=service)
             )
@@ -232,7 +230,7 @@ def disable_service(service):
             winerror.ERROR_SERVICE_DOES_NOT_EXIST,
             winerror.ERROR_SERVICE_NOT_ACTIVE,
         )
-        if not any(error == e.winerror for error in errors):
+        if e.winerror not in errors:
             logger.exception(
                 "Services: Failed to stop service '{service}'".format(service=service)
             )
@@ -426,11 +424,11 @@ def host_file(entries, undo):
 
     if undo:
         try:
-            with open(hosts_path, "r") as hosts, tempfile.NamedTemporaryFile(
-                delete=False
-            ) as temp:
+            with (open(hosts_path, "r") as hosts, tempfile.NamedTemporaryFile(
+                            delete=False
+                        ) as temp):
                 for line in hosts:
-                    if not any(domain in line for domain in entries):
+                    if all(domain not in line for domain in entries):
                         temp.write(line)
                 temp.close()
                 shutil.move(temp.name, hosts_path)
